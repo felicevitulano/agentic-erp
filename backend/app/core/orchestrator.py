@@ -57,6 +57,32 @@ class Orchestrator:
         # Load conversation context
         context = self._build_context(conversation.id)
 
+        # If conversation already has a main agent, route directly to it (follow-up messages)
+        if conversation.main_agent:
+            direct_agent = next(
+                (a for a in self.agents if a.agent_id == conversation.main_agent), None
+            )
+            if direct_agent:
+                logger.info(f"[orchestrator] Follow-up -> routing diretto a: {conversation.main_agent}")
+                result = direct_agent.process_message(message, context)
+                response_text = result.text
+                agents_involved = [result.agent_id]
+                actions = result.actions
+                assistant_msg = Message(
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content=response_text,
+                    agent_id=agents_involved[0],
+                )
+                self.db.add(assistant_msg)
+                self.db.commit()
+                log_action(self.db, agent="orchestrator", action="route_message",
+                           user_id=self.user_id,
+                           details={"message_preview": message[:100], "agents_involved": agents_involved,
+                                    "conversation_id": conversation.id})
+                return OrchestratorResponse(response=response_text, conversation_id=conversation.id,
+                                            agents_involved=agents_involved, actions=actions)
+
         # Route to best agent(s)
         scores = []
         for agent in self.agents:

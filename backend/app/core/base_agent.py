@@ -74,7 +74,7 @@ class BaseAgent(ABC):
         matches = sum(1 for kw in keywords if kw in message_lower)
         if not keywords:
             return ConfidenceScore(score=0.0, reason="Nessuna keyword definita")
-        score = min(matches / max(len(keywords) * 0.3, 1), 1.0)
+        score = min(matches / max(len(keywords) * 0.1, 1), 1.0)
         return ConfidenceScore(
             score=score,
             reason=f"Trovate {matches}/{len(keywords)} keyword di dominio",
