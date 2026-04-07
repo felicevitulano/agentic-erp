@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - db-data:/app/data
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///./data/agentic_erp.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backup:
+    image: alpine:3.19
+    volumes:
+      - db-data:/data
+      - ./backups:/backups
+    entrypoint: /bin/sh
+    command: >
+      -c "while true; do
+        cp /data/agentic_erp.db /backups/agentic_erp_$$(date +%Y%m%d_%H%M%S).db 2>/dev/null;
+        find /backups -name '*.db' -mtime +30 -delete;
+        sleep 86400;
+      done"
+    restart: unless-stopped
+
+volumes:
+  db-data:
